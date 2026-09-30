@@ -138,7 +138,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: selectedCategory,
+                      initialValue: selectedCategory,
                       decoration: InputDecoration(
                         labelText: 'التصنيف',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -217,11 +217,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
                           if (success) {
                             _refreshProducts();
-                            ScaffoldMessenger.of(parentContext).showSnackBar(
+                            if (!mounted) return;
+                            // ignore: use_build_context_synchronously
+                            ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('تمت إضافة المنتج بنجاح!')),
                             );
                           } else {
-                            ScaffoldMessenger.of(parentContext).showSnackBar(
+                            if (!mounted) return;
+                            // ignore: use_build_context_synchronously
+                            ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('فشل إضافة المنتج، حاول مجدداً')),
                             );
                           }
@@ -436,6 +440,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   return SliverPadding(
                     padding: const EdgeInsets.all(16),
                     sliver: SliverGrid(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.68,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                      ),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final p = _filteredProducts[index];
@@ -456,7 +466,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(20),
                                 boxShadow: [
-                                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 5)),
+                                  BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 5)),
                                 ],
                               ),
                               child: Column(
@@ -467,44 +480,34 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       children: [
                                         ClipRRect(
                                           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                                          child: _buildProductImage(p['image']),
+                                          child: _buildProductImage(p['image_url']?.toString()),
                                         ),
-                                        if (p['tag'] != null && p['tag'].toString().isNotEmpty)
-                                          Positioned(
-                                            top: 10,
-                                            right: 10,
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: Colors.amber.shade700,
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                p['tag'],
-                                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
                                         Positioned(
                                           top: 8,
-                                          left: 8,
+                                          right: 8,
                                           child: GestureDetector(
-                                            onTap: () {
-                                              setState(() {
-                                                if (isFavorite) {
-                                                  _favoriteProductIds.remove(productId);
-                                                } else {
-                                                  _favoriteProductIds.add(productId);
-                                                }
-                                              });
+                                            onTap: () async {
+                                              bool success = await ApiService.toggleFavorite(productId);
+                                              if (success) {
+                                                setState(() {
+                                                  if (isFavorite) {
+                                                    _favoriteProductIds.remove(productId);
+                                                  } else {
+                                                    _favoriteProductIds.add(productId);
+                                                  }
+                                                });
+                                              }
                                             },
-                                            child: CircleAvatar(
-                                              backgroundColor: Colors.white.withValues(alpha: 0.9),
-                                              radius: 16,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: const BoxDecoration(
+                                                color: Colors.white,
+                                                shape: BoxShape.circle,
+                                              ),
                                               child: Icon(
                                                 isFavorite ? Icons.favorite : Icons.favorite_border,
-                                                color: Colors.redAccent,
-                                                size: 18,
+                                                color: isFavorite ? Colors.red : Colors.grey,
+                                                size: 20,
                                               ),
                                             ),
                                           ),
@@ -518,17 +521,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          p['publisher'] ?? 'بائع معتمد',
-                                          style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          p['name'] ?? '',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                          p['name']?.toString() ?? 'منتج بدون اسم',
                                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                         const SizedBox(height: 6),
                                         Row(
@@ -542,13 +538,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                         Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text('\$${p['price']}', style: const TextStyle(color: Color(0xFF4A00E0), fontWeight: FontWeight.bold, fontSize: 16)),
-                                                if (p['old_price'] != null)
-                                                  Text('\$${p['old_price'].toStringAsFixed(1)}', style: const TextStyle(color: Colors.grey, fontSize: 11, decoration: TextDecoration.lineThrough)),
-                                              ],
+                                            Text(
+                                              '\$${p['price'] ?? 0}',
+                                              style: const TextStyle(
+                                                color: Color(0xFF4A00E0),
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
                                             ),
                                             InkWell(
                                               onTap: () {
@@ -557,7 +553,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                                 );
                                               },
                                               child: Container(
-                                                padding: const EdgeInsets.all(8),
+                                                padding: const EdgeInsets.all(6),
                                                 decoration: BoxDecoration(
                                                   gradient: const LinearGradient(colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)]),
                                                   borderRadius: BorderRadius.circular(10),
@@ -576,12 +572,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           );
                         },
                         childCount: _filteredProducts.length,
-                      ),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.68,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
                       ),
                     ),
                   );

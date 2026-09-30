@@ -99,6 +99,27 @@ class ApiService {
     }
   }
 
+  static Future<bool> toggleFavorite(int productId) async {
+    final session = await getUserSession();
+    if (session == null || session['token'] == null || session['token']!.isEmpty) return false;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/favorites/toggle'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${session['token']}',
+        },
+        body: jsonEncode({'product_id': productId}),
+      ).timeout(requestTimeout);
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Toggle Favorite Error: $e');
+      return false;
+    }
+  }
+
   static Future<List<dynamic>> getProducts() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/products')).timeout(requestTimeout);
